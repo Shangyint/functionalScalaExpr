@@ -3,9 +3,25 @@ package functionalScala
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
-sealed trait List[+A]
+sealed trait List[+A] 
 case object Nil extends List[Nothing]
-case class Cons[+A](head: A, tail: List[A]) extends List[A]
+case class Cons[+A](head: A, tail: List[A]) extends List[A] {
+
+  override def toString(): String = toString(true)
+  def toString(first:Boolean = true): String = {
+    if (first) {
+      "[" + head + (tail match {
+        case Nil => "]"
+        case Cons(h, t) => ", " + tail.asInstanceOf[Cons[A]].toString(false)
+      })
+    } else {
+      head + (tail match {
+        case Nil => "]"
+        case Cons(h, t) => ", " + tail.asInstanceOf[Cons[A]].toString(false)
+      })
+    }
+  }
+}
 
 object List {
   def apply[A](as: A*): List[A] =
@@ -68,9 +84,11 @@ object Test2 extends App {
   println("times2 andThen plus1: comp(3) == " + (times2 andThen plus1)(3))
 }
 
+
+// chapter 3.1 - 3.4 exercise 3.1 - 3.24
 object Test3 extends App {
   // question: page 30 List[+A], what does +A mean?
-
+  
   def tail[A](ls: List[A]): List[A] = ls match {
     case Nil => Nil
     // ans: case Nil => sys.error("tail of empty list")
@@ -166,8 +184,143 @@ object Test3 extends App {
   }
   println("reverse of list [1,2,3] is " + reverse(List(1,2,3)))
 
-  def foldLeft2[A,B](as: List[A], z: B)(f: (B, A) => B): B = as match {
-    case Nil => z
-    case Cons(head, tail) => z
+  // ** Exercise 3.13 **
+
+  // foldLeft(l, z)(f) => 
+  // f(f(z, l(0)), l(1)) ...
+  // foldRight(l, z)(f) =>
+  // f(l(0), f(l(1), ...))
+  // foldRight(l(0), b=>f(b, l(1)))(f) == b2 => f(f(b2, l(0)), l(1))
+  def foldLeft2[A,B](as: List[A], z: B)(f: (B, A) => B): B = 
+    foldRight(as, (b: B) => b)((a, g) => b => g(f(b, a)))(z)
+
+  // foldLeft(l(0), l(1))
+  def foldRight2[A, B](as: List[A], z: B)(f: (A, B) => B):B = {
+    foldLeft(as, (b: B) => b)((g, a) => b => g(f(a, b)))(z)
   }
+
+  def append[A](as: List[A], e: A): List[A] = {
+    foldRight(as, List(e))((h, t) => Cons(h, t))
+  }
+  // ans
+  def append2[A](as: List[A], r: List[A]): List[A] = {
+    foldRight(as, r)(Cons(_, _))
+  }
+  
+
+  println("append 4 to [1,2,3]: " + append(List(1,2,3), 4))
+
+  def concat[A](ls: List[List[A]]): List[A] = {
+    foldLeft(ls, List[A]())(append2(_, _))
+  }
+
+  println("concat [1,2], [3,4] and [5,6]: " + concat(List(List(1,2),List(3,4),List(5,6))))
+
+  val add1toList = (l: List[Int]) => foldRight(l, List[Int]())((h, t) => Cons(h + 1, t))
+  println("add 1 to [1,2,3] is " + add1toList(List(1,2,3)))
+  
+  def map[A,B](as: List[A])(f: A => B): List[B] = as match {
+    case Nil => Nil
+    case Cons(head, tail) => Cons(f(head), map(tail)(f))
+  }
+
+  val doubleListToString = (l: List[Double]) => map(l)(d => d.toString())
+  println("Double List [1.0, 2.0, 3.0] toString:" + 
+    doubleListToString(List(1.0, 2.0,3.0)))
+
+  def mapTail[A, B](as: List[A])(f: A => B): List[B] = {
+    val buf = ListBuffer[B]()
+    @annotation.tailrec
+    def go(as: List[A]): List[B] = as match {
+      case Nil => List(buf.toList: _*)
+      case Cons(head, tail) => {
+        buf += f(head)
+        go(tail)
+      }
+    }
+    go(as)
+  }
+
+  def filter[A](as: List[A])(f: A => Boolean): List[A] = {
+    val buf = ListBuffer[A]()
+    @annotation.tailrec
+    def go(as: List[A]): List[A] = as match {
+      case Nil => List(buf.toList: _*)
+      case Cons(head, tail) if f(head) => {
+        buf += head
+        go(tail)
+      }
+      case _ => go(as.asInstanceOf[Cons[A]].tail)
+    }
+    go(as)
+  }
+
+  val filterOdd = (l: List[Int]) => filter(l)(n => n % 2 == 0)
+  println("filter to remove odd from [1,2,3,4]: " + filterOdd(List(1,2,3,4)))
+
+  def flatMap[A,B](as: List[A])(f: A => List[B]): List[B] = concat(map(as)(f))
+
+  def filterViaFlatMap[A](as: List[A])(f: A => Boolean): List[A] = flatMap(as)(a => if (f(a)) List(a) else Nil)
+
+  def addTwoList(l1: List[Int], l2: List[Int]): List[Int] = (l1, l2) match {
+    case (_, Nil) => Nil
+    case (Nil, _) => Nil
+    case (Cons(h1, t1), Cons(h2, t2)) => Cons(h1 + h2, addTwoList(t1, t2))
+  }
+
+  def zipWith[A, B, C](l1: List[A], l2: List[B])(f: (A, B) => C): List[C] = (l1, l2) match {
+    case (_, Nil) => Nil
+    case (Nil, _) => Nil
+    case (Cons(h1, t1), Cons(h2, t2)) => Cons(f(h1, h2), zipWith(t1, t2)(f))
+  }
+
+  def zipWithTailed[A, B, C](l1: List[A], l2: List[B])(f: (A, B) => C): List[C] = {
+    val buf = ListBuffer[C]()
+    @annotation.tailrec
+    def go(l1: List[A], l2: List[B]): List[C] = (l1, l2) match {
+      case (_, Nil) => List(buf.toList: _*)
+      case (Nil, _) => List(buf.toList: _*)
+      case (Cons(h1, t1), Cons(h2, t2)) => {
+        buf += f(h1, h2)
+        go(t1, t2)
+      }
+    }
+    go(l1, l2)
+  }
+
+  def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = {
+    def go(sup: List[A], curr: List[A], nextHead: List[A]): Boolean = (sup, curr) match {
+      case (_, Nil) => true
+      case (Nil, _) => false
+      case (Cons(h, t), Cons(bh, bt)) => {
+        val newHead = if (curr == sub) t else nextHead
+        if (h == bh) go(t, bt, newHead)
+        else go(newHead, sub, newHead)
+      }
+    }
+    go(sup, sub, sup)
+  }
+
+  @annotation.tailrec
+  def startsWith[A](l: List[A], prefix: List[A]): Boolean = (l,prefix) match {
+    case (_,Nil) => true
+    case (Cons(h,t),Cons(h2,t2)) if h == h2 => startsWith(t, t2)
+    case _ => false
+  }
+  @annotation.tailrec
+  def hasSubsequence2[A](sup: List[A], sub: List[A]): Boolean = sup match {
+    case Nil => sub == Nil
+    case _ if startsWith(sup, sub) => true
+    case Cons(h,t) => hasSubsequence2(t, sub)
+  }
+
+  val l1 = List(1,1,1,2,3,1,4)
+  val l2 = List(1,1,4)
+  println(s"hasSubsequence($l1,$l2): "+hasSubsequence(l1, l2))
+}
+
+
+// chapter 3.5
+object Test3_5 extends App {
+
 }
