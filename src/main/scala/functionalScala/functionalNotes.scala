@@ -300,7 +300,8 @@ object Test3 extends App {
     }
     go(sup, sub, sup)
   }
-
+  
+  // answer
   @annotation.tailrec
   def startsWith[A](l: List[A], prefix: List[A]): Boolean = (l,prefix) match {
     case (_,Nil) => true
@@ -320,7 +321,45 @@ object Test3 extends App {
 }
 
 
+sealed trait Tree[+A]
+case class Leaf[A](value: A) extends Tree[A]
+case class Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
+
 // chapter 3.5
 object Test3_5 extends App {
+  // how to make this tailrec? 
+  def size[A](tree: Tree[A]): Int = tree match {
+    case Leaf(value) => 1
+    case Branch(left, right) => size(left) + size(right) + 1
+  }
+
+  def maximum(tree: Tree[Int]): Int = tree match {
+    case Leaf(value) => value
+    case Branch(left, right) => maximum(left) max maximum(right)
+  }
+
+  def depth[A](tree: Tree[A]): Int = tree match {
+    case Leaf(value) => 1
+    case Branch(left, right) => 1 + (depth(left) max depth(right))
+  }
+
+  def map[A, B](tree: Tree[A])(f: A => B): Tree[B] = tree match {
+    case Leaf(value) => Leaf(f(value))
+    case Branch(left, right) => Branch(map(left)(f), map(right)(f))
+  }
+
+  def fold[A, B, C](tree: Tree[A])(f: A => B)(g: (B, B) => B): B = tree match {
+    case Leaf(value) => f(value)
+    case Branch(left, right) => g(fold(left)(f)(g), fold(right)(f)(g))
+  }
+
+  def sizeViaFold[A](tree: Tree[A]) = fold(tree)(a => 1)(_ + _ + 1)
+  def maximumViaFold(tree: Tree[Int]) = fold(tree)(a => a)(_ max _)
+  def depthViaFold[A](tree: Tree[A]) = fold(tree)(a => 1)((d1, d2) => 1 + (d1 max d2))
+  def mapViaFold[A, B](tree: Tree[A])(f: A => B): Tree[B] = 
+    fold(tree)(v => Leaf(f(v)): Tree[B])((b1, b2) => Branch(b1, b2))
+}
+
+object Test4 extends App {
 
 }
