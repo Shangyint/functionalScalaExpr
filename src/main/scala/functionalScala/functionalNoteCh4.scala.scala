@@ -21,7 +21,27 @@ sealed trait Option[+A] {
     }
 }
 case class Some[+A](get: A) extends Option[A] 
-case object None extends Option[Nothing] 
+case object None extends Option[Nothing]
+
+sealed trait Either[+E, +A] {
+  def map[B](f: A => B): Either[E, B] = this match {
+    case Left(value) => Left(value)
+    case Right(value) => Right(f(value))
+  }
+  def flatMap[EE >: E, B](f: A => Either[EE, B]): Either[EE, B] = this match {
+    case Left(value) => Left(value)
+    case Right(value) => f(value)
+  }
+  def orElse[EE >: E,B >: A](b: => Either[EE, B]): Either[EE, B] = this match {
+    case Left(value) => b
+    case Right(value) => Right(value)
+  }
+  def map2[EE >: E, B, C](b: Either[EE, B])(f: (A, B) => C): Either[EE, C] = 
+    //for {e1 <- this; e2 <- b} yield f(e1, e2)
+    this flatMap(aa => (b map (bb => f(aa, bb))))
+}
+case class Left[+E](value: E) extends Either[E, Nothing]
+case class Right[+A](value: A) extends Either[Nothing, A]
 // chapter 4
 object Test4 extends App {
   def mean(xs: Seq[Double]): Option[Double] =
@@ -43,5 +63,27 @@ object Test4 extends App {
   def sequence[A](a: List[Option[A]]): Option[List[A]] = a match {
       case Nil => Some(Nil)
       case h :: t => h flatMap (hh => sequence(t) map (hh :: _))
-  }  
+  }
+
+  def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = a match {
+    case Nil => Some(Nil)
+    case head :: tl => f(head) flatMap(headB => traverse(tl)(f) map (headB :: _))
+    // ans: h::t => map2(f(h), traverse(t)(f))(_ :: _)
+  }
+
+  def traverseViaFold[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = 
+    a.foldRight[Option[List[B]]](Some(Nil))((aa, bb) => map2(f(aa), bb)((opa, opb) => opa::opb))
+
+  def sequence2[E, A](es: List[Either[E, A]]): Either[E, List[A]] = es match {
+    case Nil => Right(Nil)
+    case head :: tl => for { h <- head; t <- sequence2(tl) } yield h :: t
+  }
+
+  def traverse3[E,A,B](es: List[A])(f: A => Either[E, B]): Either[E, List[B]] = es match {
+    case Nil => Right(Nil)
+    case h::t => (f(h) map2 traverse3(t)(f))(_ :: _)
+  }
+
+  def traverse2[E, A, B](as: List[A])(f: A => Either[E, B]): Either[E, List[B]] = ???
+
 }
