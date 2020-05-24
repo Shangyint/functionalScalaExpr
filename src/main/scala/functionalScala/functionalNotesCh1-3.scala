@@ -97,7 +97,8 @@ object Test3 extends App {
   }
 
   def setHead[A](ls: List[A], rep: A): List[A] = ls match {
-    case Nil => sys.error("Set head of empty list")
+    // case Nil => sys.error("Set head of empty list")
+    case Nil => Nil
     case Cons(_, xs) => Cons(rep, xs)
   }
 
@@ -105,8 +106,8 @@ object Test3 extends App {
   def drop[A](l: List[A], n: Int): List[A] = n match {
     case 0 => l
     case _ => l match {
-      case Nil => sys.error("drop more items then the list has")
-      // ans: case Nil => Nil
+      // my sol: case Nil => sys.error("drop more items then the list has")
+      case Nil => Nil
       case Cons(_, t) => drop(t, n - 1)
     }
   }
@@ -358,8 +359,4 @@ object Test3_5 extends App {
   def depthViaFold[A](tree: Tree[A]) = fold(tree)(a => 1)((d1, d2) => 1 + (d1 max d2))
   def mapViaFold[A, B](tree: Tree[A])(f: A => B): Tree[B] = 
     fold(tree)(v => Leaf(f(v)): Tree[B])((b1, b2) => Branch(b1, b2))
-}
-
-object Test4 extends App {
-
 }
